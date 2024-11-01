@@ -19,7 +19,7 @@ func GetContainerPorts(_ *common.ServiceInfo) (ret []corev1.ContainerPort) {
 		{
 			Name:          "default",
 			Protocol:      corev1.ProtocolTCP,
-			ContainerPort: common.DefaultMariadbPort,
+			ContainerPort: common.DefaultPostgreSQLPort,
 		},
 	}
 
@@ -80,8 +80,8 @@ func GetResources(_ *common.ServiceInfo) (ret corev1.ResourceRequirements) {
 
 	ret = corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resourceQuantity(common.MariadbDefaultSpec.CPU),
-			corev1.ResourceMemory: resourceQuantity(common.MariadbDefaultSpec.Memory),
+			corev1.ResourceCPU:    resourceQuantity(common.PostgreSQLDefaultSpec.CPU),
+			corev1.ResourceMemory: resourceQuantity(common.PostgreSQLDefaultSpec.Memory),
 		},
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resourceQuantity("100m"),
@@ -210,7 +210,7 @@ func GetServicePorts(serviceInfo *common.ServiceInfo) (ret []corev1.ServicePort)
 		{
 			Name:     "default",
 			Protocol: corev1.ProtocolTCP,
-			Port:     common.DefaultMariadbPort,
+			Port:     common.DefaultPostgreSQLPort,
 			TargetPort: intstr.IntOrString{
 				Type:   0,
 				IntVal: serviceInfo.Svc.Port,

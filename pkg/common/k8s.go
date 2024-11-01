@@ -22,11 +22,11 @@ const (
 	InnerPath = "inner-path"
 )
 
-var MariadbDefaultSpec = Spec{
+var PostgreSQLDefaultSpec = Spec{
 	CPU:    "2",
 	Memory: "4Gi",
 }
 
-const MariadbBackupBinlogFile = "data/xtrabackup_binlog_info"
+const PostgreSQLBackupBinlogFile = "data/xtrabackup_binlog_info"
 
 type Endpoint Svc

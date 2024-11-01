@@ -145,9 +145,9 @@ func (s *K8s) CreateService(ev event.Event, re event.Result) {
 
 	var err *cd.Result
 	switch catalog.(string) {
-	case common.Mariadb:
-		serviceInfo := s.getDefaultMariadbServiceInfo(serviceName)
-		err = s.createMariadb(serviceInfo)
+	case common.PostgreSQL:
+		serviceInfo := s.getDefaultPostgreSQLServiceInfo(serviceName)
+		err = s.createPostgreSQL(serviceInfo)
 	default:
 		panic(fmt.Sprintf("illegal catalog:%v", catalog))
 	}
@@ -177,8 +177,8 @@ func (s *K8s) DestroyService(ev event.Event, re event.Result) {
 
 	var err *cd.Result
 	switch catalog.(string) {
-	case common.Mariadb:
-		serviceInfo, serviceErr := s.Query(serviceName, common.Mariadb)
+	case common.PostgreSQL:
+		serviceInfo, serviceErr := s.Query(serviceName, common.PostgreSQL)
 		if serviceErr == nil {
 			err = s.destroyService(serviceInfo)
 		} else {
@@ -265,12 +265,12 @@ func (s *K8s) enumService() common.Catalog2ServiceList {
 	for _, val := range serviceList {
 		servicePtr := val.(*common.ServiceInfo)
 		switch servicePtr.Catalog {
-		case common.Mariadb:
+		case common.PostgreSQL:
 			mariadbList = append(mariadbList, servicePtr.Name)
 		}
 	}
 	if len(mariadbList) > 0 {
-		catalog2ServiceList[common.Mariadb] = mariadbList
+		catalog2ServiceList[common.PostgreSQL] = mariadbList
 	}
 
 	return catalog2ServiceList
@@ -303,8 +303,8 @@ func (s *K8s) QueryService(ev event.Event, re event.Result) {
 
 func (s *K8s) createService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 	switch serviceInfo.Catalog {
-	case common.Mariadb:
-		err = s.createMariadb(serviceInfo)
+	case common.PostgreSQL:
+		err = s.createPostgreSQL(serviceInfo)
 	}
 
 	return
@@ -312,8 +312,8 @@ func (s *K8s) createService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 
 func (s *K8s) destroyService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 	switch serviceInfo.Catalog {
-	case common.Mariadb:
-		err = s.destroyMariadb(serviceInfo)
+	case common.PostgreSQL:
+		err = s.destroyPostgreSQL(serviceInfo)
 	}
 
 	return
@@ -321,8 +321,8 @@ func (s *K8s) destroyService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 
 func (s *K8s) startService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 	switch serviceInfo.Catalog {
-	case common.Mariadb:
-		err = s.startMariadb(serviceInfo)
+	case common.PostgreSQL:
+		err = s.startPostgreSQL(serviceInfo)
 	}
 
 	return
@@ -330,8 +330,8 @@ func (s *K8s) startService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 
 func (s *K8s) stopService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 	switch serviceInfo.Catalog {
-	case common.Mariadb:
-		err = s.stopMariadb(serviceInfo)
+	case common.PostgreSQL:
+		err = s.stopPostgreSQL(serviceInfo)
 	}
 
 	return

@@ -147,9 +147,9 @@ func (s *K8s) delService(deploymentPtr *appv1.Deployment) {
 
 func (s *K8s) getServiceName(deploymentPtr *appv1.Deployment) (name, catalog string) {
 	nameVal := deploymentPtr.ObjectMeta.GetName()
-	if strings.Index(nameVal, common.Mariadb) != -1 {
+	if strings.Index(nameVal, common.PostgreSQL) != -1 {
 		name = nameVal
-		catalog = common.Mariadb
+		catalog = common.PostgreSQL
 		return
 	}
 

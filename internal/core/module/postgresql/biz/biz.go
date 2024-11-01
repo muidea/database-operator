@@ -8,16 +8,16 @@ import (
 	"supos.ai/operator/database/pkg/common"
 )
 
-type Mariadb struct {
+type PostgreSQL struct {
 	biz.Base
 }
 
 func New(
 	eventHub event.Hub,
 	backgroundRoutine task.BackgroundRoutine,
-) *Mariadb {
-	ptr := &Mariadb{
-		Base: biz.New(common.MariadbModule, eventHub, backgroundRoutine),
+) *PostgreSQL {
+	ptr := &PostgreSQL{
+		Base: biz.New(common.PostgreSQLModule, eventHub, backgroundRoutine),
 	}
 
 	return ptr

@@ -13,11 +13,11 @@ const (
 )
 
 const (
-	Mariadb = "mariadb"
+	PostgreSQL = "mariadb"
 )
 
 var DefaultCatalogList = []string{
-	Mariadb,
+	PostgreSQL,
 }
 
 var DefaultLabels = map[string]string{
