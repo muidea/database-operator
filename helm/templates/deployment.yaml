@@ -55,14 +55,6 @@ spec:
             timeoutSeconds: 1
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          volumeMounts:
-            - mountPath: /var/local/share/cluster
-              name: config-path
-      volumes:
-        - name: config-path
-          hostPath:
-            path: /var/local/share/cluster
-            type: ""
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

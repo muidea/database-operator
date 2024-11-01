@@ -125,6 +125,12 @@ func (s *K8s) ExecuteCommand(ev event.Event, re event.Result) {
 	}
 }
 
+func (s *K8s) GetConfig(_ event.Event, re event.Result) {
+	if re != nil {
+		re.Set(s.clientConfig, nil)
+	}
+}
+
 func (s *K8s) CreateService(ev event.Event, re event.Result) {
 	param := ev.Data()
 	if param == nil {
@@ -132,11 +138,6 @@ func (s *K8s) CreateService(ev event.Event, re event.Result) {
 		return
 	}
 
-	serviceName, serviceOK := param.(string)
-	if !serviceOK {
-		log.Warnf("CreateService failed, illegal param")
-		return
-	}
 	catalog := ev.GetData("catalog")
 	if catalog == nil {
 		log.Warnf("CreateService failed, illegal catalog")
@@ -146,8 +147,6 @@ func (s *K8s) CreateService(ev event.Event, re event.Result) {
 	var err *cd.Result
 	switch catalog.(string) {
 	case common.PostgreSQL:
-		serviceInfo := s.getDefaultPostgreSQLServiceInfo(serviceName)
-		err = s.createPostgreSQL(serviceInfo)
 	default:
 		panic(fmt.Sprintf("illegal catalog:%v", catalog))
 	}

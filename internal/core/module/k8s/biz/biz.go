@@ -2,17 +2,16 @@ package biz
 
 import (
 	"context"
+	"flag"
 	"fmt"
-	"net"
-	"os"
-	"strings"
-
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"os"
+	"path/filepath"
 
 	cd "github.com/muidea/magicCommon/def"
 	"github.com/muidea/magicCommon/event"
@@ -24,22 +23,38 @@ import (
 	"supos.ai/operator/database/pkg/common"
 )
 
-const haSuffix = "-4ha"
+func homeDir() string {
+	if h := os.Getenv("HOME"); h != "" {
+		return h
+	}
+	return os.Getenv("USERPROFILE") // windows
+}
 
 func getClusterConfig() (config *rest.Config, err error) {
-	if len(os.Getenv("KUBERNETES_SERVICE_HOST")) == 0 {
-		var addrs []string
-		addrs, err = net.LookupHost("kubernetes.default.svc")
-		if err != nil {
-			return
+	var kubeconfig *string
+	if home := homeDir(); home != "" {
+		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+	} else {
+		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+	}
+	config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+	return
+	/*
+		if len(os.Getenv("KUBERNETES_SERVICE_HOST")) == 0 {
+			var addrs []string
+			addrs, err = net.LookupHost("kubernetes.default.svc")
+			if err != nil {
+				return
+			}
+			os.Setenv("KUBERNETES_SERVICE_HOST", addrs[0])
 		}
-		os.Setenv("KUBERNETES_SERVICE_HOST", addrs[0])
-	}
-	if len(os.Getenv("KUBERNETES_SERVICE_PORT")) == 0 {
-		os.Setenv("KUBERNETES_SERVICE_PORT", "443")
-	}
+		if len(os.Getenv("KUBERNETES_SERVICE_PORT")) == 0 {
+			os.Setenv("KUBERNETES_SERVICE_PORT", "443")
+		}
 
-	return rest.InClusterConfig()
+		return rest.InClusterConfig()
+	*/
+
 }
 
 type K8s struct {
@@ -73,6 +88,7 @@ func New(
 	}
 
 	ptr.SubscribeFunc(common.ExecuteCommand, ptr.ExecuteCommand)
+	ptr.SubscribeFunc(common.GetK8sConfig, ptr.GetConfig)
 	ptr.SubscribeFunc(common.StartService, ptr.StartService)
 	ptr.SubscribeFunc(common.StopService, ptr.StopService)
 	ptr.SubscribeFunc(common.JobService, ptr.JobService)
@@ -104,54 +120,16 @@ func (s *K8s) Run() {
 
 		// 循环监听Watcher的事件
 		for event := range watcher.ResultChan() {
-			deployment, ok := event.Object.(*appv1.Deployment)
+			_, ok := event.Object.(*appv1.Deployment)
 			if !ok {
 				log.Errorf("Unexpected object type:%v", event.Object)
 				continue
-			}
-
-			// 根据事件类型执行相应操作
-			switch event.Type {
-			case watch.Added, watch.Modified:
-				s.addService(deployment)
-			case watch.Deleted:
-				s.delService(deployment)
-			case watch.Error:
-				log.Warnf("Error occurred, object type:%v", event.Object)
 			}
 		}
 
 		// 关闭Watcher
 		watcher.Stop()
 	})
-}
-
-func (s *K8s) addService(deploymentPtr *appv1.Deployment) {
-}
-
-func (s *K8s) delService(deploymentPtr *appv1.Deployment) {
-	serviceName, serviceCatalog := s.getServiceName(deploymentPtr)
-	if serviceCatalog == "" {
-		return
-	}
-
-	serviceVal := s.serviceCache.Fetch(serviceName)
-
-	values := event.NewValues()
-	values.Set(event.Action, event.Del)
-	s.BroadCast(common.NotifyService, values, serviceVal.(*common.ServiceInfo))
-	s.serviceCache.Remove(serviceName)
-}
-
-func (s *K8s) getServiceName(deploymentPtr *appv1.Deployment) (name, catalog string) {
-	nameVal := deploymentPtr.ObjectMeta.GetName()
-	if strings.Index(nameVal, common.PostgreSQL) != -1 {
-		name = nameVal
-		catalog = common.PostgreSQL
-		return
-	}
-
-	return
 }
 
 func (s *K8s) Create(serviceName, catalog string) (err *cd.Result) {

@@ -2,9 +2,6 @@ package biz
 
 import (
 	"context"
-	"strings"
-
-	appv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	cd "github.com/muidea/magicCommon/def"
@@ -13,45 +10,6 @@ import (
 	"supos.ai/operator/database/internal/core/module/k8s/pkg/postgresql"
 	"supos.ai/operator/database/pkg/common"
 )
-
-func (s *K8s) checkIsPostgreSQL(deploymentPtr *appv1.Deployment) bool {
-	return strings.Index(deploymentPtr.ObjectMeta.GetName(), common.PostgreSQL) != -1
-}
-
-func (s *K8s) getDefaultPostgreSQLServiceInfo(serviceName string) (ret *common.ServiceInfo) {
-	ret = &common.ServiceInfo{
-		Name:      serviceName,
-		Namespace: s.getNamespace(),
-		Catalog:   common.PostgreSQL,
-		Image:     common.DefaultPostgreSQLImage,
-		Labels:    common.DefaultLabels,
-		Spec:      &common.PostgreSQLDefaultSpec,
-		Volumes: &common.Volumes{
-			ConfPath: &common.Path{
-				Name:  "config",
-				Value: common.DefaultPostgreSQLConfigPath,
-				Type:  common.InnerPath,
-			},
-			BackPath: &common.Path{
-				Name:  "back-path",
-				Value: common.DefaultPostgreSQLBackPath,
-				Type:  common.HostPath,
-			},
-		},
-		Env: &common.Env{
-			Root:     common.DefaultPostgreSQLRoot,
-			Password: common.DefaultPostgreSQLPassword,
-		},
-		Svc: &common.Svc{
-			Port: common.DefaultPostgreSQLPort,
-		},
-		Replicas: 1,
-	}
-
-	ret.Labels["app"] = serviceName
-	ret.Labels["catalog"] = common.PostgreSQL
-	return
-}
 
 func (s *K8s) createPostgreSQL(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 	// 1、Create pvc
