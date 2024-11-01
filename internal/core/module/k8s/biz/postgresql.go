@@ -2,16 +2,15 @@ package biz
 
 import (
 	"context"
-	appv1 "k8s.io/api/apps/v1"
 	"strings"
-	"supos.ai/operator/database/internal/config"
 
+	appv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	cd "github.com/muidea/magicCommon/def"
 	"github.com/muidea/magicCommon/foundation/log"
 
-	"supos.ai/operator/database/internal/core/module/k8s/pkg/mariadb"
+	"supos.ai/operator/database/internal/core/module/k8s/pkg/postgresql"
 	"supos.ai/operator/database/pkg/common"
 )
 
@@ -44,7 +43,6 @@ func (s *K8s) getDefaultPostgreSQLServiceInfo(serviceName string) (ret *common.S
 			Password: common.DefaultPostgreSQLPassword,
 		},
 		Svc: &common.Svc{
-			Host: config.GetLocalHost(),
 			Port: common.DefaultPostgreSQLPort,
 		},
 		Replicas: 1,
@@ -58,7 +56,7 @@ func (s *K8s) getDefaultPostgreSQLServiceInfo(serviceName string) (ret *common.S
 func (s *K8s) createPostgreSQL(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 	// 1、Create pvc
 	_, pvcErr := s.clientSet.CoreV1().PersistentVolumeClaims(s.getNamespace()).Create(context.TODO(),
-		mariadb.GetPersistentVolumeClaims(serviceInfo),
+		postgresql.GetPersistentVolumeClaims(serviceInfo),
 		metav1.CreateOptions{})
 	if pvcErr != nil {
 		err = cd.NewError(cd.UnExpected, pvcErr.Error())
@@ -69,7 +67,7 @@ func (s *K8s) createPostgreSQL(serviceInfo *common.ServiceInfo) (err *cd.Result)
 
 	// 2、Create Deployment
 	_, deploymentErr := s.clientSet.AppsV1().Deployments(s.getNamespace()).Create(context.TODO(),
-		mariadb.GetDeployment(serviceInfo),
+		postgresql.GetDeployment(serviceInfo),
 		metav1.CreateOptions{})
 	if deploymentErr != nil {
 		err = cd.NewError(cd.UnExpected, deploymentErr.Error())
@@ -82,7 +80,7 @@ func (s *K8s) createPostgreSQL(serviceInfo *common.ServiceInfo) (err *cd.Result)
 
 	// 3、Create Service
 	_, serviceErr := s.clientSet.CoreV1().Services(s.getNamespace()).Create(context.TODO(),
-		mariadb.GetService(serviceInfo),
+		postgresql.GetService(serviceInfo),
 		metav1.CreateOptions{})
 	if serviceErr != nil {
 		err = cd.NewError(cd.UnExpected, serviceErr.Error())
@@ -155,7 +153,7 @@ func (s *K8s) stopPostgreSQL(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 
 func (s *K8s) jobPostgreSQL(serviceInfo *common.ServiceInfo, command []string) (err *cd.Result) {
 	job, jobErr := s.clientSet.BatchV1().Jobs(s.getNamespace()).Create(context.TODO(),
-		mariadb.GetJob(serviceInfo, command),
+		postgresql.GetJob(serviceInfo, command),
 		metav1.CreateOptions{})
 	if jobErr != nil {
 		err = cd.NewError(cd.UnExpected, jobErr.Error())

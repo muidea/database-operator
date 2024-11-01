@@ -75,8 +75,6 @@ func New(
 	ptr.SubscribeFunc(common.ExecuteCommand, ptr.ExecuteCommand)
 	ptr.SubscribeFunc(common.StartService, ptr.StartService)
 	ptr.SubscribeFunc(common.StopService, ptr.StopService)
-	ptr.SubscribeFunc(common.ChangeServiceEndpoints, ptr.ChangeServiceEndpoints)
-	ptr.SubscribeFunc(common.RestoreServiceEndpoints, ptr.RestoreServiceEndpoints)
 	ptr.SubscribeFunc(common.JobService, ptr.JobService)
 	ptr.SubscribeFunc(common.ListService, ptr.ListService)
 	ptr.SubscribeFunc(common.QueryService, ptr.QueryService)
@@ -153,7 +151,10 @@ func (s *K8s) getServiceName(deploymentPtr *appv1.Deployment) (name, catalog str
 		return
 	}
 
-	// TODO other databases
+	return
+}
+
+func (s *K8s) Create(serviceName, catalog string) (err *cd.Result) {
 	return
 }
 
@@ -198,7 +199,7 @@ func (s *K8s) Query(serviceName, catalog string) (ret *common.ServiceInfo, err *
 	}
 	servicePtr := serviceVal.(*common.ServiceInfo)
 	if servicePtr.Catalog != catalog {
-		err = cd.NewError(cd.UnExpected, fmt.Sprintf("%s miss match catalog", serviceName))
+		err = cd.NewError(cd.UnExpected, fmt.Sprintf("%s missmatch catalog", serviceName))
 		return
 	}
 

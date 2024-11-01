@@ -1,4 +1,4 @@
-package mariadb
+package postgresql
 
 import (
 	"fmt"
@@ -17,9 +17,8 @@ import (
 func GetContainerPorts(_ *common.ServiceInfo) (ret []corev1.ContainerPort) {
 	ret = []corev1.ContainerPort{
 		{
-			Name:          "default",
-			Protocol:      corev1.ProtocolTCP,
-			ContainerPort: common.DefaultPostgreSQLPort,
+			Name:     "default",
+			Protocol: corev1.ProtocolTCP,
 		},
 	}
 
@@ -27,48 +26,7 @@ func GetContainerPorts(_ *common.ServiceInfo) (ret []corev1.ContainerPort) {
 }
 
 func GetEnv(serviceInfo *common.ServiceInfo) (ret []corev1.EnvVar) {
-	ret = []corev1.EnvVar{
-		{
-			Name:  "GROUP",
-			Value: "internal",
-		},
-		{
-			Name:  "MALLOC_ARENA_MAX",
-			Value: "1",
-		},
-		{
-			Name:  "MANAGE_PORT",
-			Value: "8080",
-		},
-		{
-			Name:  "MYSQL_DATABASES",
-			Value: "object_internal,cas_service",
-		},
-		{
-			Name:  "MYSQL_ROOT_PASSWORD",
-			Value: serviceInfo.Env.Password,
-		},
-		{
-			Name:  "NAME",
-			Value: serviceInfo.Name,
-		},
-		{
-			Name:  "PORT",
-			Value: "3306",
-		},
-		{
-			Name:  "RUNTIME_METRICS",
-			Value: "true",
-		},
-		{
-			Name:  "RUNTIME_METRICS_TTL",
-			Value: "1",
-		},
-		{
-			Name:  "RUNTIME_METRICS_URL",
-			Value: "lake-pushgateway:9091",
-		},
-	}
+	ret = []corev1.EnvVar{}
 	return
 }
 
@@ -98,36 +56,8 @@ func GetVolumeMounts(serviceInfo *common.ServiceInfo) (ret []corev1.VolumeMount)
 			Name:      serviceInfo.Volumes.DataPath.Name,
 			MountPath: "/var/lib/mysql",
 		},
-		{
-			Name:      serviceInfo.Volumes.BackPath.Name,
-			MountPath: "/backup",
-		},
 	}
 	return
-}
-
-func GetLiveness(_ *common.ServiceInfo) (ret *corev1.Probe) {
-	ret = &corev1.Probe{
-		Handler: corev1.Handler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"bash", "-ec", "mysqladmin status -uroot -p\"${MYSQL_ROOT_PASSWORD}\" --connect-timeout=2"},
-			},
-		},
-		FailureThreshold:    3,
-		InitialDelaySeconds: 30,
-		PeriodSeconds:       10,
-		SuccessThreshold:    1,
-		TimeoutSeconds:      5,
-	}
-	return
-}
-
-func GetReadiness(serviceInfo *common.ServiceInfo) (ret *corev1.Probe) {
-	return GetLiveness(serviceInfo)
-}
-
-func GetStartupProbe(serviceInfo *common.ServiceInfo) (ret *corev1.Probe) {
-	return GetLiveness(serviceInfo)
 }
 
 func GetContainer(serviceInfo *common.ServiceInfo) (ret []corev1.Container) {
@@ -139,9 +69,6 @@ func GetContainer(serviceInfo *common.ServiceInfo) (ret []corev1.Container) {
 			Ports:           GetContainerPorts(serviceInfo),
 			Env:             GetEnv(serviceInfo),
 			Resources:       GetResources(serviceInfo),
-			LivenessProbe:   GetLiveness(serviceInfo),
-			ReadinessProbe:  GetReadiness(serviceInfo),
-			StartupProbe:    GetStartupProbe(serviceInfo),
 			VolumeMounts:    GetVolumeMounts(serviceInfo),
 		},
 	}
@@ -210,7 +137,6 @@ func GetServicePorts(serviceInfo *common.ServiceInfo) (ret []corev1.ServicePort)
 		{
 			Name:     "default",
 			Protocol: corev1.ProtocolTCP,
-			Port:     common.DefaultPostgreSQLPort,
 			TargetPort: intstr.IntOrString{
 				Type:   0,
 				IntVal: serviceInfo.Svc.Port,
@@ -260,7 +186,7 @@ func GetPersistentVolumeClaims(serviceInfo *common.ServiceInfo) (ret *corev1.Per
 			AccessModes: []corev1.PersistentVolumeAccessMode{
 				corev1.ReadWriteMany,
 			},
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: resourceQuantity("10Gi"),
 				},
