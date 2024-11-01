@@ -108,22 +108,3 @@ func (s *K8s) stopPostgreSQL(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 
 	return
 }
-
-func (s *K8s) jobPostgreSQL(serviceInfo *common.ServiceInfo, command []string) (err *cd.Result) {
-	job, jobErr := s.clientSet.BatchV1().Jobs(s.getNamespace()).Create(context.TODO(),
-		postgresql.GetJob(serviceInfo, command),
-		metav1.CreateOptions{})
-	if jobErr != nil {
-		err = cd.NewError(cd.UnExpected, jobErr.Error())
-		log.Errorf("jobPostgreSQL %v service failed, s.clientSet.BatchV1().Jobs(s.getNamespace()).Create error:%s",
-			serviceInfo, jobErr.Error())
-		return
-	}
-	errWait := s.waitForJobFinished(serviceInfo, job)
-	if errWait != nil {
-		log.Errorf("PostgreSQL job %+v failed: %v", serviceInfo, errWait)
-		err = cd.NewError(cd.Failed, errWait.Error())
-		return
-	}
-	return
-}

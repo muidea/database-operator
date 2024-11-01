@@ -4,20 +4,20 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	appv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"path/filepath"
-
 	cd "github.com/muidea/magicCommon/def"
 	"github.com/muidea/magicCommon/event"
 	"github.com/muidea/magicCommon/foundation/cache"
 	"github.com/muidea/magicCommon/foundation/log"
 	"github.com/muidea/magicCommon/task"
+	appv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"os"
+	"path/filepath"
 
 	"supos.ai/operator/database/internal/core/base/biz"
 	"supos.ai/operator/database/pkg/common"
@@ -91,7 +91,6 @@ func New(
 	ptr.SubscribeFunc(common.GetK8sConfig, ptr.GetConfig)
 	ptr.SubscribeFunc(common.StartService, ptr.StartService)
 	ptr.SubscribeFunc(common.StopService, ptr.StopService)
-	ptr.SubscribeFunc(common.JobService, ptr.JobService)
 	ptr.SubscribeFunc(common.ListService, ptr.ListService)
 	ptr.SubscribeFunc(common.QueryService, ptr.QueryService)
 	ptr.SubscribeFunc(common.CreateService, ptr.CreateService)
@@ -120,10 +119,20 @@ func (s *K8s) Run() {
 
 		// 循环监听Watcher的事件
 		for event := range watcher.ResultChan() {
-			_, ok := event.Object.(*appv1.Deployment)
+			deployment, ok := event.Object.(*appv1.Deployment)
 			if !ok {
 				log.Errorf("Unexpected object type:%v", event.Object)
 				continue
+			}
+
+			// 根据事件类型执行相应操作
+			switch event.Type {
+			case watch.Added, watch.Modified:
+				s.addService(deployment)
+			case watch.Deleted:
+				s.delService(deployment)
+			case watch.Error:
+				log.Warnf("Error occurred, object type:%v", event.Object)
 			}
 		}
 
@@ -132,6 +141,38 @@ func (s *K8s) Run() {
 	})
 }
 
+func (s *K8s) addService(deploymentPtr *appv1.Deployment) {
+	serviceInfo, serviceErr := s.getServiceInfoFromDeployment(deploymentPtr, s.clientSet)
+	if serviceErr != nil {
+		log.Errorf("addService failed, s.getServiceInfoFromDeployment %v error:%s", deploymentPtr.ObjectMeta.GetName(), serviceErr.Error())
+		return
+	}
+	// 如果返回空，则表示是不需要处理的服务，直接调过
+	if serviceInfo == nil {
+		return
+	}
+
+	values := event.NewValues()
+	values.Set(event.Action, event.Add)
+	s.BroadCast(common.NotifyService, values, serviceInfo)
+
+	s.serviceCache.Put(serviceInfo.Name, serviceInfo, cache.ForeverAgeValue)
+}
+
+func (s *K8s) delService(deploymentPtr *appv1.Deployment) {
+	serviceName := s.getServiceName(deploymentPtr)
+	serviceVal := s.serviceCache.Fetch(serviceName)
+
+	values := event.NewValues()
+	values.Set(event.Action, event.Del)
+	s.BroadCast(common.NotifyService, values, serviceVal.(*common.ServiceInfo))
+
+	s.serviceCache.Remove(serviceName)
+}
+
+func (s *K8s) getServiceName(deploymentPtr *appv1.Deployment) (name string) {
+	return deploymentPtr.ObjectMeta.GetName()
+}
 func (s *K8s) Create(serviceName, catalog string) (err *cd.Result) {
 	return
 }
@@ -182,5 +223,23 @@ func (s *K8s) Query(serviceName, catalog string) (ret *common.ServiceInfo, err *
 	}
 
 	ret = servicePtr
+	return
+}
+
+func (s *K8s) getServiceInfoFromDeployment(deploymentPtr *appv1.Deployment, clientSet *kubernetes.Clientset) (ret *common.ServiceInfo, err *cd.Result) {
+	ptr := &common.ServiceInfo{
+		Name:      deploymentPtr.ObjectMeta.GetName(),
+		Namespace: deploymentPtr.ObjectMeta.GetNamespace(),
+		Image:     deploymentPtr.Spec.Template.Spec.Containers[0].Image,
+		Labels:    deploymentPtr.ObjectMeta.Labels,
+		Spec: &common.Spec{
+			CPU:    deploymentPtr.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().String(),
+			Memory: deploymentPtr.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().String(),
+		},
+		Replicas: *deploymentPtr.Spec.Replicas,
+	}
+	ptr.Catalog = common.PostgreSQL
+
+	ret = ptr
 	return
 }

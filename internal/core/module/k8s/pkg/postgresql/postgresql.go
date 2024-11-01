@@ -1,11 +1,7 @@
 package postgresql
 
 import (
-	"fmt"
-	"path"
-
 	appv1 "k8s.io/api/apps/v1"
-	bachV1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -194,94 +190,6 @@ func GetPersistentVolumeClaims(serviceInfo *common.ServiceInfo) (ret *corev1.Per
 			StorageClassName: storageClassName(serviceInfo.Volumes.DataPath.Type),
 			VolumeName:       serviceInfo.Name,
 			VolumeMode:       volumeModeFileSystem(),
-		},
-	}
-
-	return
-}
-
-func GetJobInitContainer(serviceInfo *common.ServiceInfo, command []string) (ret []corev1.Container) {
-	ret = []corev1.Container{}
-	for idx, val := range command {
-		ret = append(ret, corev1.Container{
-			Name:            fmt.Sprintf("%s%02d", serviceInfo.Name, idx),
-			Image:           serviceInfo.Image,
-			Command:         []string{"/usr/bin/sh", "-c", val},
-			SecurityContext: &corev1.SecurityContext{Privileged: func() *bool { b := true; return &b }()},
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Ports:           GetContainerPorts(serviceInfo),
-			Env:             GetEnv(serviceInfo),
-			Resources:       GetResources(serviceInfo),
-			VolumeMounts:    GetVolumeMounts(serviceInfo),
-		})
-	}
-
-	return
-}
-
-func GetJobContainer(serviceInfo *common.ServiceInfo, _ []string) (ret []corev1.Container) {
-	ret = []corev1.Container{
-		{
-			Name:            serviceInfo.Name,
-			Image:           serviceInfo.Image,
-			Command:         []string{"/usr/bin/sh", "-c", "echo 'execute finish!'"},
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Ports:           GetContainerPorts(serviceInfo),
-			Env:             GetEnv(serviceInfo),
-			Resources:       GetResources(serviceInfo),
-			VolumeMounts:    GetVolumeMounts(serviceInfo),
-		},
-	}
-
-	return
-}
-
-func GetJobVolumes(serviceInfo *common.ServiceInfo) (ret []corev1.Volume) {
-	ret = []corev1.Volume{
-		{
-			Name: serviceInfo.Volumes.DataPath.Name,
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: serviceInfo.Volumes.DataPath.Value,
-				},
-			},
-		},
-		{
-			Name: serviceInfo.Volumes.BackPath.Name,
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: path.Join(serviceInfo.Volumes.BackPath.Value, "data"),
-				},
-			},
-		},
-	}
-	return
-}
-
-func GetJobPodTemplate(serviceInfo *common.ServiceInfo, command []string) (ret corev1.PodTemplateSpec) {
-	ret = corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: serviceInfo.Labels,
-		},
-		Spec: corev1.PodSpec{
-			InitContainers: GetJobInitContainer(serviceInfo, command),
-			Containers:     GetJobContainer(serviceInfo, command),
-			Volumes:        GetJobVolumes(serviceInfo),
-			RestartPolicy:  corev1.RestartPolicyNever,
-		},
-	}
-	return
-}
-
-func GetJob(serviceInfo *common.ServiceInfo, command []string) (ret *bachV1.Job) {
-	ret = &bachV1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceInfo.Name,
-			Namespace: serviceInfo.Namespace,
-			Labels:    serviceInfo.Labels,
-		},
-		Spec: bachV1.JobSpec{
-			Template: GetJobPodTemplate(serviceInfo, command),
 		},
 	}
 

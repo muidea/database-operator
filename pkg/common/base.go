@@ -13,7 +13,7 @@ const (
 )
 
 const (
-	PostgreSQL = "mariadb"
+	PostgreSQL = "postgresql"
 )
 
 var DefaultCatalogList = []string{
@@ -87,8 +87,7 @@ type Env struct {
 }
 
 type Svc struct {
-	Host string `json:"host"`
-	Port int32  `json:"port"`
+	Port int32 `json:"port"`
 }
 
 type ServiceInfo struct {

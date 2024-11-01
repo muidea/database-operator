@@ -7,7 +7,6 @@ const (
 	DestroyService = "/service/destroy"
 	StartService   = "/service/start"
 	StopService    = "/service/stop"
-	JobService     = "/service/job"
 	ListService    = "/service/list"
 	QueryService   = "/service/query"
 	NotifyService  = "/service/notify"

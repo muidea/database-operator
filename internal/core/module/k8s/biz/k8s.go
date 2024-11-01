@@ -4,16 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	batchv1 "k8s.io/api/batch/v1"
-	"strings"
-	"time"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
+	"strings"
 
 	cd "github.com/muidea/magicCommon/def"
 	"github.com/muidea/magicCommon/event"
@@ -230,25 +227,6 @@ func (s *K8s) StopService(ev event.Event, re event.Result) {
 	}
 }
 
-func (s *K8s) JobService(ev event.Event, re event.Result) {
-	param := ev.Data()
-	if param == nil {
-		log.Warnf("StopService failed, nil param")
-		return
-	}
-
-	cmdInfoPtr, cmdInfoOK := param.(*common.CmdInfo)
-	if !cmdInfoOK {
-		log.Warnf("StopService failed, illegal param")
-		return
-	}
-
-	jobServiceInfo := *cmdInfoPtr.ServiceInfo
-	jobServiceInfo.Name = cmdInfoPtr.Service
-
-	return
-}
-
 func (s *K8s) ListService(ev event.Event, re event.Result) {
 	catalog2ServiceList := s.enumService()
 	if re != nil {
@@ -333,31 +311,5 @@ func (s *K8s) stopService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 		err = s.stopPostgreSQL(serviceInfo)
 	}
 
-	return
-}
-
-func (s *K8s) waitForJobFinished(serviceInfo *common.ServiceInfo, job *batchv1.Job) (err error) {
-	finished := false
-	for !finished {
-		for _, condition := range job.Status.Conditions {
-			switch condition.Type {
-			case batchv1.JobComplete:
-				finished = true
-				return s.deleteJob(job)
-			case batchv1.JobFailed:
-				finished = true
-				err = fmt.Errorf("%v job failed: %v", serviceInfo.Name, condition.Reason)
-			}
-		}
-		time.Sleep(time.Second * 5)
-	}
-	return
-}
-
-func (s *K8s) deleteJob(job *batchv1.Job) (err error) {
-	err = s.clientSet.
-		BatchV1().
-		Jobs("default").
-		Delete(context.Background(), job.Name, metav1.DeleteOptions{})
 	return
 }
