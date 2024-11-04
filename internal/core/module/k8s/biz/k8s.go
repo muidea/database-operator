@@ -281,7 +281,7 @@ func (s *K8s) QueryService(ev event.Event, re event.Result) {
 func (s *K8s) createService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 	switch serviceInfo.Catalog {
 	case common.PostgreSQL:
-		err = s.createPostgreSQL(serviceInfo)
+		err = s.createDatabase(serviceInfo)
 	}
 
 	return
@@ -290,7 +290,7 @@ func (s *K8s) createService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 func (s *K8s) destroyService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 	switch serviceInfo.Catalog {
 	case common.PostgreSQL:
-		err = s.destroyPostgreSQL(serviceInfo)
+		err = s.destroyDatabase(serviceInfo)
 	}
 
 	return
@@ -299,7 +299,7 @@ func (s *K8s) destroyService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 func (s *K8s) startService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 	switch serviceInfo.Catalog {
 	case common.PostgreSQL:
-		err = s.startPostgreSQL(serviceInfo)
+		err = s.startDatabase(serviceInfo)
 	}
 
 	return
@@ -308,7 +308,7 @@ func (s *K8s) startService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 func (s *K8s) stopService(serviceInfo *common.ServiceInfo) (err *cd.Result) {
 	switch serviceInfo.Catalog {
 	case common.PostgreSQL:
-		err = s.stopPostgreSQL(serviceInfo)
+		err = s.stopDatabase(serviceInfo)
 	}
 
 	return

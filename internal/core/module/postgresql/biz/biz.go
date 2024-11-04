@@ -2,16 +2,19 @@ package biz
 
 import (
 	"context"
-	"encoding/json"
-	"github.com/muidea/magicCommon/event"
-	"github.com/muidea/magicCommon/foundation/log"
-	"github.com/muidea/magicCommon/task"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+
+	cd "github.com/muidea/magicCommon/def"
+	"github.com/muidea/magicCommon/event"
+	"github.com/muidea/magicCommon/foundation/cache"
+	"github.com/muidea/magicCommon/foundation/log"
+	"github.com/muidea/magicCommon/task"
 
 	"supos.ai/operator/database/internal/core/base/biz"
 	"supos.ai/operator/database/pkg/common"
@@ -22,7 +25,8 @@ import (
 type PostgreSQL struct {
 	biz.Base
 
-	client dynamic.Interface
+	postgresqlCache cache.KVCache
+	client          dynamic.Interface
 }
 
 func New(
@@ -30,15 +34,28 @@ func New(
 	backgroundRoutine task.BackgroundRoutine,
 ) *PostgreSQL {
 	ptr := &PostgreSQL{
-		Base: biz.New(common.PostgreSQLModule, eventHub, backgroundRoutine),
+		Base:            biz.New(common.PostgreSQLModule, eventHub, backgroundRoutine),
+		postgresqlCache: cache.NewKVCache(nil),
 	}
 
 	ptr.SubscribeFunc(common.NotifyTimer, ptr.timerCheck)
+	ptr.SubscribeFunc(common.NotifyService, ptr.serviceNotify)
 	return ptr
 }
 
 func (s *PostgreSQL) timerCheck(_ event.Event, _ event.Result) {
 	s.List("default")
+}
+
+func (s *PostgreSQL) serviceNotify(ev event.Event, _ event.Result) {
+	serviceInfoPtr, serviceInfoOK := ev.Data().(*common.ServiceInfo)
+	if !serviceInfoOK {
+		return
+	}
+	if serviceInfoPtr.Catalog != common.PostgreSQL {
+		return
+	}
+
 }
 
 func (s *PostgreSQL) Run() {
@@ -93,12 +110,18 @@ func (s *PostgreSQL) List(namespace string) {
 	}
 
 	log.Infof("%s, count:%v", pgList.Kind, len(pgList.Items))
-	if len(pgList.Items) > 0 {
-		log.Infof("%s", pgList.Items[0].GetName())
+	for _, val := range pgList.Items {
+		s.postgresqlCache.Put(val.Name, &val, cache.ForeverAgeValue)
 	}
 }
 
-func (s *PostgreSQL) Get(namespace, name string) {
+func (s *PostgreSQL) Get(namespace, name string) (ret *pgv1.PostgreSQL, err *cd.Result) {
+	val := s.postgresqlCache.Fetch(name)
+	if val != nil {
+		ret = val.(*pgv1.PostgreSQL)
+		return
+	}
+
 	res := s.getResource()
 	client := s.getK8sClient()
 	resVal, resErr := client.Resource(res).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
@@ -107,31 +130,31 @@ func (s *PostgreSQL) Get(namespace, name string) {
 		return
 	}
 
-	var pgVal pgv1.PostgreSQL
-	convertErr := runtime.DefaultUnstructuredConverter.FromUnstructured(resVal.UnstructuredContent(), &pgVal)
+	pgVal := &pgv1.PostgreSQL{}
+	convertErr := runtime.DefaultUnstructuredConverter.FromUnstructured(resVal.UnstructuredContent(), pgVal)
 	if convertErr != nil {
 		log.Errorf("runtime.DefaultUnstructuredConverter.FromUnstructured failed, error:%s", convertErr.Error())
 		return
 	}
+
+	s.postgresqlCache.Put(pgVal.Name, pgVal, cache.ForeverAgeValue)
+	ret = pgVal
+	return
 }
 
-func (s *PostgreSQL) Create(namespace string, pgPtr *pgv1.PostgreSQL) {
+func (s *PostgreSQL) Create(namespace string, pgPtr *pgv1.PostgreSQL) (ret *pgv1.PostgreSQL, err *cd.Result) {
 	res := s.getResource()
 	client := s.getK8sClient()
-	byteData, byteErr := json.Marshal(pgPtr)
-	if byteErr != nil {
-		log.Errorf("json.Marshal failed, error:%s", byteErr.Error())
-		return
-	}
 
-	unstructuredPtr := &unstructured.Unstructured{}
-	err := json.Unmarshal(byteData, &unstructuredPtr.Object)
-	if err != nil {
+	unstructuredPtr, unstructuredErr := runtime.DefaultUnstructuredConverter.ToUnstructured(pgPtr)
+	if unstructuredErr != nil {
 		log.Errorf("json.Unmarshal failed, error:%s", err.Error())
 		return
 	}
 
-	resVal, resErr := client.Resource(res).Create(context.TODO(), unstructuredPtr, metav1.CreateOptions{})
+	resVal, resErr := client.Resource(res).Create(context.TODO(), &unstructured.Unstructured{
+		Object: unstructuredPtr,
+	}, metav1.CreateOptions{})
 	if resErr != nil {
 		log.Errorf("s.client.Resource(res).Namespace(namespace).Create Postgresql failed, namespace:%s, error:%s", namespace, resErr.Error())
 		return
@@ -143,4 +166,6 @@ func (s *PostgreSQL) Create(namespace string, pgPtr *pgv1.PostgreSQL) {
 		log.Errorf("runtime.DefaultUnstructuredConverter.FromUnstructured failed, error:%s", convertErr.Error())
 		return
 	}
+
+	return
 }

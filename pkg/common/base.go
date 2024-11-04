@@ -78,7 +78,6 @@ type Path struct {
 type Volumes struct {
 	ConfPath *Path `json:"confPath"`
 	DataPath *Path `json:"dataPath"`
-	BackPath *Path `json:"backPath"`
 }
 
 type Env struct {

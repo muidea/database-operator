@@ -238,6 +238,7 @@ func (s *K8s) getServiceInfoFromDeployment(deploymentPtr *appv1.Deployment, clie
 		},
 		Replicas: *deploymentPtr.Spec.Replicas,
 	}
+	//TODO
 	ptr.Catalog = common.PostgreSQL
 
 	ret = ptr

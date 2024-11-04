@@ -1,4 +1,4 @@
-package postgresql
+package database
 
 import (
 	appv1 "k8s.io/api/apps/v1"
@@ -26,7 +26,7 @@ func GetEnv(serviceInfo *common.ServiceInfo) (ret []corev1.EnvVar) {
 	return
 }
 
-func GetResources(_ *common.ServiceInfo) (ret corev1.ResourceRequirements) {
+func GetResources(serviceInfo *common.ServiceInfo) (ret corev1.ResourceRequirements) {
 	resourceQuantity := func(quantity string) resourcev1.Quantity {
 		r, _ := resourcev1.ParseQuantity(quantity)
 		return r
@@ -34,8 +34,8 @@ func GetResources(_ *common.ServiceInfo) (ret corev1.ResourceRequirements) {
 
 	ret = corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resourceQuantity(common.PostgreSQLDefaultSpec.CPU),
-			corev1.ResourceMemory: resourceQuantity(common.PostgreSQLDefaultSpec.Memory),
+			corev1.ResourceCPU:    resourceQuantity(serviceInfo.Spec.CPU),
+			corev1.ResourceMemory: resourceQuantity(serviceInfo.Spec.Memory),
 		},
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resourceQuantity("100m"),
@@ -50,7 +50,7 @@ func GetVolumeMounts(serviceInfo *common.ServiceInfo) (ret []corev1.VolumeMount)
 	ret = []corev1.VolumeMount{
 		{
 			Name:      serviceInfo.Volumes.DataPath.Name,
-			MountPath: "/var/lib/mysql",
+			MountPath: serviceInfo.Volumes.DataPath.Value,
 		},
 	}
 	return
@@ -77,15 +77,7 @@ func GetVolumes(serviceInfo *common.ServiceInfo) (ret []corev1.Volume) {
 			Name: serviceInfo.Volumes.DataPath.Name,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: serviceInfo.Volumes.DataPath.Value,
-				},
-			},
-		},
-		{
-			Name: serviceInfo.Volumes.BackPath.Name,
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: serviceInfo.Volumes.BackPath.Value,
+					ClaimName: serviceInfo.Volumes.DataPath.Name,
 				},
 			},
 		},
@@ -164,12 +156,12 @@ func GetPersistentVolumeClaims(serviceInfo *common.ServiceInfo) (ret *corev1.Per
 		return r
 	}
 	storageClassName := func(className string) *string {
-		ret := className
-		return &ret
+		classNameVal := className
+		return &classNameVal
 	}
 	volumeModeFileSystem := func() *corev1.PersistentVolumeMode {
-		ret := corev1.PersistentVolumeFilesystem
-		return &ret
+		volumeVal := corev1.PersistentVolumeFilesystem
+		return &volumeVal
 	}
 
 	ret = &corev1.PersistentVolumeClaim{

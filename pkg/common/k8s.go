@@ -14,9 +14,4 @@ const (
 
 const K8sModule = "/module/k8s"
 
-var PostgreSQLDefaultSpec = Spec{
-	CPU:    "2",
-	Memory: "4Gi",
-}
-
 type Endpoint Svc

@@ -6,4 +6,9 @@ const (
 	DefaultPostgreSQLPassword = "rootkit"
 )
 
+var PostgreSQLDefaultSpec = Spec{
+	CPU:    "2",
+	Memory: "4Gi",
+}
+
 const PostgreSQLModule = "/module/postgresql"
