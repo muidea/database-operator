@@ -80,9 +80,13 @@ type Volumes struct {
 	DataPath *Path `json:"dataPath"`
 }
 
+type EnvItem struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 type Env struct {
-	Root     string `json:"root"`
-	Password string `json:"password"`
+	Items []*EnvItem `json:"items"`
 }
 
 type Svc struct {
@@ -135,5 +139,3 @@ type QueryServiceResult struct {
 	cd.Result
 	ServiceInfo *ServiceInfo `json:"serviceInfo"`
 }
-
-const BaseModule = "/kernel/base"

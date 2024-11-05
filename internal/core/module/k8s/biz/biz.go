@@ -236,11 +236,62 @@ func (s *K8s) getServiceInfoFromDeployment(deploymentPtr *appv1.Deployment, clie
 			CPU:    deploymentPtr.Spec.Template.Spec.Containers[0].Resources.Limits.Cpu().String(),
 			Memory: deploymentPtr.Spec.Template.Spec.Containers[0].Resources.Limits.Memory().String(),
 		},
+		Volumes:  &common.Volumes{},
 		Replicas: *deploymentPtr.Spec.Replicas,
 	}
+
+	dataPath, dataErr := s.getServiceDataPath(deploymentPtr, clientSet)
+	if dataErr != nil {
+		err = dataErr
+		log.Errorf("getServiceInfoFromDeployment failed, s.getServiceDataPath %v error:%v", deploymentPtr.ObjectMeta.GetName(), dataErr.Error())
+		return
+	}
+	ptr.Volumes.DataPath = dataPath
+
 	//TODO
 	ptr.Catalog = common.PostgreSQL
 
 	ret = ptr
+	return
+}
+
+func (s *K8s) getServiceDataPath(deploymentPtr *appv1.Deployment, clientSet *kubernetes.Clientset) (ret *common.Path, err *cd.Result) {
+	var dataVolumes *corev1.Volume
+	for _, val := range deploymentPtr.Spec.Template.Spec.Volumes {
+		if val.Name == deploymentPtr.ObjectMeta.GetName() {
+			dataVolumes = &val
+			break
+		}
+	}
+	if dataVolumes == nil || dataVolumes.PersistentVolumeClaim == nil {
+		return
+	}
+
+	pvcInfo, pvcErr := clientSet.CoreV1().PersistentVolumeClaims(s.getNamespace()).Get(
+		context.TODO(),
+		dataVolumes.PersistentVolumeClaim.ClaimName,
+		metav1.GetOptions{})
+	if pvcErr != nil {
+		err = cd.NewError(cd.UnExpected, pvcErr.Error())
+		log.Errorf("getServiceDataPath failed, clientSet.CoreV1().PersistentVolumeClaims(s.getNamespace()).Get %v error:%v",
+			dataVolumes.PersistentVolumeClaim.ClaimName,
+			pvcErr.Error())
+		return
+	}
+
+	pvInfo, pvErr := clientSet.CoreV1().PersistentVolumes().Get(context.TODO(), pvcInfo.Spec.VolumeName, metav1.GetOptions{})
+	if pvErr != nil {
+		err = cd.NewError(cd.UnExpected, pvErr.Error())
+		log.Errorf("getServiceDataPath failed, clientSet.CoreV1().PersistentVolumes().Get %v error:%v",
+			pvcInfo.Spec.VolumeName,
+			pvErr.Error())
+		return
+	}
+
+	ret = &common.Path{
+		Name:  dataVolumes.Name,
+		Value: pvInfo.Spec.HostPath.Path,
+		Type:  common.LocalPath,
+	}
 	return
 }

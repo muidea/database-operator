@@ -14,4 +14,10 @@ const (
 
 const K8sModule = "/module/k8s"
 
+const (
+	HostPath  = "host-path"
+	LocalPath = "local-path"
+	InnerPath = "inner-path"
+)
+
 type Endpoint Svc

@@ -2,6 +2,8 @@ package biz
 
 import (
 	"context"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	cd "github.com/muidea/magicCommon/def"
@@ -12,6 +14,11 @@ import (
 )
 
 func (s *K8s) createDatabase(serviceInfo *common.ServiceInfo) (err *cd.Result) {
+	_, curErr := s.clientSet.AppsV1().Deployments(s.getNamespace()).Get(context.TODO(), serviceInfo.Name, metav1.GetOptions{})
+	if curErr == nil || !errors.IsNotFound(curErr) {
+		return
+	}
+
 	// 1、Create pvc
 	_, pvcErr := s.clientSet.CoreV1().PersistentVolumeClaims(s.getNamespace()).Create(context.TODO(),
 		database.GetPersistentVolumeClaims(serviceInfo),

@@ -135,19 +135,12 @@ func (s *K8s) CreateService(ev event.Event, re event.Result) {
 		return
 	}
 
-	catalog := ev.GetData("catalog")
-	if catalog == nil {
-		log.Warnf("CreateService failed, illegal catalog")
+	serviceInfoPtr, serviceInfoOK := param.(*common.ServiceInfo)
+	if !serviceInfoOK {
+		log.Warnf("CreateService failed, nil param")
 		return
 	}
-
-	var err *cd.Result
-	switch catalog.(string) {
-	case common.PostgreSQL:
-	default:
-		panic(fmt.Sprintf("illegal catalog:%v", catalog))
-	}
-
+	err := s.createService(serviceInfoPtr)
 	if re != nil {
 		re.Set(nil, err)
 	}
@@ -160,30 +153,12 @@ func (s *K8s) DestroyService(ev event.Event, re event.Result) {
 		return
 	}
 
-	serviceName, serviceOK := param.(string)
-	if !serviceOK {
-		log.Warnf("DestroyService failed, illegal param")
+	serviceInfoPtr, serviceInfoOK := param.(*common.ServiceInfo)
+	if !serviceInfoOK {
+		log.Warnf("DestroyService failed, nil param")
 		return
 	}
-	catalog := ev.GetData("catalog")
-	if catalog == nil {
-		log.Warnf("DestroyService failed, illegal catalog")
-		return
-	}
-
-	var err *cd.Result
-	switch catalog.(string) {
-	case common.PostgreSQL:
-		serviceInfo, serviceErr := s.Query(serviceName, common.PostgreSQL)
-		if serviceErr == nil {
-			err = s.destroyService(serviceInfo)
-		} else {
-			err = serviceErr
-		}
-	default:
-		panic(fmt.Sprintf("illegal catalog:%v", catalog))
-	}
-
+	err := s.destroyService(serviceInfoPtr)
 	if re != nil {
 		re.Set(nil, err)
 	}
@@ -196,13 +171,25 @@ func (s *K8s) StartService(ev event.Event, re event.Result) {
 		return
 	}
 
-	cmdInfoPtr, cmdInfoOK := param.(*common.CmdInfo)
-	if !cmdInfoOK {
+	serviceName, serviceOK := param.(string)
+	if !serviceOK {
 		log.Warnf("StartService failed, illegal param")
 		return
 	}
 
-	err := s.startService(cmdInfoPtr.ServiceInfo)
+	serviceInfo := s.serviceCache.Fetch(serviceName)
+	if serviceInfo == nil {
+		log.Warnf("StartService failed, illegal param")
+		return
+	}
+
+	serviceInfoPtr, serviceInfoOK := serviceInfo.(*common.ServiceInfo)
+	if !serviceInfoOK {
+		log.Warnf("StartService failed, nil param")
+		return
+	}
+
+	err := s.startService(serviceInfoPtr)
 	if re != nil {
 		re.Set(nil, err)
 	}
@@ -215,13 +202,25 @@ func (s *K8s) StopService(ev event.Event, re event.Result) {
 		return
 	}
 
-	cmdInfoPtr, cmdInfoOK := param.(*common.CmdInfo)
-	if !cmdInfoOK {
+	serviceName, serviceOK := param.(string)
+	if !serviceOK {
 		log.Warnf("StopService failed, illegal param")
 		return
 	}
 
-	err := s.stopService(cmdInfoPtr.ServiceInfo)
+	serviceInfo := s.serviceCache.Fetch(serviceName)
+	if serviceInfo == nil {
+		log.Warnf("StopService failed, illegal param")
+		return
+	}
+
+	serviceInfoPtr, serviceInfoOK := serviceInfo.(*common.ServiceInfo)
+	if !serviceInfoOK {
+		log.Warnf("StopService failed, nil param")
+		return
+	}
+
+	err := s.stopService(serviceInfoPtr)
 	if re != nil {
 		re.Set(nil, err)
 	}
@@ -237,17 +236,17 @@ func (s *K8s) ListService(ev event.Event, re event.Result) {
 func (s *K8s) enumService() common.Catalog2ServiceList {
 	catalog2ServiceList := common.Catalog2ServiceList{}
 
-	mariadbList := common.ServiceList{}
+	postgresqlList := common.ServiceList{}
 	serviceList := s.serviceCache.GetAll()
 	for _, val := range serviceList {
 		servicePtr := val.(*common.ServiceInfo)
 		switch servicePtr.Catalog {
 		case common.PostgreSQL:
-			mariadbList = append(mariadbList, servicePtr.Name)
+			postgresqlList = append(postgresqlList, servicePtr.Name)
 		}
 	}
-	if len(mariadbList) > 0 {
-		catalog2ServiceList[common.PostgreSQL] = mariadbList
+	if len(postgresqlList) > 0 {
+		catalog2ServiceList[common.PostgreSQL] = postgresqlList
 	}
 
 	return catalog2ServiceList

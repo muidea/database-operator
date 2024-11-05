@@ -10,11 +10,12 @@ import (
 	"supos.ai/operator/database/pkg/common"
 )
 
-func GetContainerPorts(_ *common.ServiceInfo) (ret []corev1.ContainerPort) {
+func GetContainerPorts(serviceInfo *common.ServiceInfo) (ret []corev1.ContainerPort) {
 	ret = []corev1.ContainerPort{
 		{
-			Name:     "default",
-			Protocol: corev1.ProtocolTCP,
+			Name:          "default",
+			Protocol:      corev1.ProtocolTCP,
+			ContainerPort: serviceInfo.Svc.Port,
 		},
 	}
 
@@ -23,6 +24,13 @@ func GetContainerPorts(_ *common.ServiceInfo) (ret []corev1.ContainerPort) {
 
 func GetEnv(serviceInfo *common.ServiceInfo) (ret []corev1.EnvVar) {
 	ret = []corev1.EnvVar{}
+	for _, val := range serviceInfo.Env.Items {
+		ret = append(ret, corev1.EnvVar{
+			Name:  val.Name,
+			Value: val.Value,
+		})
+	}
+
 	return
 }
 
@@ -125,6 +133,7 @@ func GetServicePorts(serviceInfo *common.ServiceInfo) (ret []corev1.ServicePort)
 		{
 			Name:     "default",
 			Protocol: corev1.ProtocolTCP,
+			Port:     serviceInfo.Svc.Port,
 			TargetPort: intstr.IntOrString{
 				Type:   0,
 				IntVal: serviceInfo.Svc.Port,

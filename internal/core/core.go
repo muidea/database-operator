@@ -13,7 +13,6 @@ import (
 
 	"supos.ai/operator/database/pkg/common"
 
-	_ "supos.ai/operator/database/internal/core/kernel/base"
 	_ "supos.ai/operator/database/internal/core/module/k8s"
 	_ "supos.ai/operator/database/internal/core/module/postgresql"
 )

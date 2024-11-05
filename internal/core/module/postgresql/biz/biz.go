@@ -22,6 +22,11 @@ import (
 	pgv1 "supos.ai/operator/database/pkg/crds/v1"
 )
 
+type serviceInfo struct {
+	serviceInfo   *common.ServiceInfo
+	postgreSQLPtr *pgv1.PostgreSQL
+}
+
 type PostgreSQL struct {
 	biz.Base
 
@@ -45,6 +50,8 @@ func New(
 
 func (s *PostgreSQL) timerCheck(_ event.Event, _ event.Result) {
 	s.List("default")
+
+	s.serviceVerify()
 }
 
 func (s *PostgreSQL) serviceNotify(ev event.Event, _ event.Result) {
@@ -52,10 +59,48 @@ func (s *PostgreSQL) serviceNotify(ev event.Event, _ event.Result) {
 	if !serviceInfoOK {
 		return
 	}
-	if serviceInfoPtr.Catalog != common.PostgreSQL {
+
+	curPtr := s.postgresqlCache.Fetch(serviceInfoPtr.Name)
+	if curPtr == nil {
+		infoPtr := &serviceInfo{
+			serviceInfo: serviceInfoPtr,
+		}
+
+		s.postgresqlCache.Put(serviceInfoPtr.Name, infoPtr, cache.ForeverAgeValue)
 		return
 	}
 
+	infoPtr := curPtr.(*serviceInfo)
+	infoPtr.serviceInfo = serviceInfoPtr
+	s.postgresqlCache.Put(serviceInfoPtr.Name, infoPtr, cache.ForeverAgeValue)
+}
+
+func (s *PostgreSQL) serviceVerify() {
+	postgresqlList := s.postgresqlCache.GetAll()
+	for _, val := range postgresqlList {
+		serviceInfoPtr, serviceInfoOK := val.(*serviceInfo)
+		if !serviceInfoOK {
+			continue
+		}
+		if serviceInfoPtr.serviceInfo == nil {
+			// create postgresql k8s deployment...
+			s.createK8sDeployment(serviceInfoPtr.postgreSQLPtr)
+			continue
+		}
+		if serviceInfoPtr.postgreSQLPtr == nil {
+			// create postgresql crd instance...
+			continue
+		}
+	}
+}
+
+func (s *PostgreSQL) createK8sDeployment(pgPtr *pgv1.PostgreSQL) {
+	pgName := pgPtr.GetName()
+	pgNamespace := pgPtr.GetNamespace()
+	pgServicePtr := common.NewPostgreSQLService(pgName, pgNamespace)
+
+	createEvent := event.NewEvent(common.CreateService, s.ID(), common.K8sModule, nil, pgServicePtr)
+	s.PostEvent(createEvent)
 }
 
 func (s *PostgreSQL) Run() {
@@ -111,7 +156,20 @@ func (s *PostgreSQL) List(namespace string) {
 
 	log.Infof("%s, count:%v", pgList.Kind, len(pgList.Items))
 	for _, val := range pgList.Items {
-		s.postgresqlCache.Put(val.Name, &val, cache.ForeverAgeValue)
+
+		curPtr := s.postgresqlCache.Fetch(val.Name)
+		if curPtr == nil {
+			infoPtr := &serviceInfo{
+				postgreSQLPtr: &val,
+			}
+
+			s.postgresqlCache.Put(val.Name, infoPtr, cache.ForeverAgeValue)
+			continue
+		}
+
+		infoPtr := curPtr.(*serviceInfo)
+		infoPtr.postgreSQLPtr = &val
+		s.postgresqlCache.Put(val.Name, infoPtr, cache.ForeverAgeValue)
 	}
 }
 
