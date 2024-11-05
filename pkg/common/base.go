@@ -21,7 +21,7 @@ var DefaultCatalogList = []string{
 }
 
 var DefaultLabels = map[string]string{
-	"app.kubernetes.io/created-by": "dlake",
+	"app.kubernetes.io/created-by": "database.supos.ai",
 }
 
 func GetDefaultLabels() string {
