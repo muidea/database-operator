@@ -22,7 +22,7 @@ import (
 	pgv1 "supos.ai/operator/database/pkg/crds/v1"
 )
 
-type serviceInfo struct {
+type serviceInfoPair struct {
 	serviceInfo   *common.ServiceInfo
 	postgreSQLPtr *pgv1.PostgreSQL
 }
@@ -62,23 +62,23 @@ func (s *PostgreSQL) serviceNotify(ev event.Event, _ event.Result) {
 
 	curPtr := s.postgresqlCache.Fetch(serviceInfoPtr.Name)
 	if curPtr == nil {
-		infoPtr := &serviceInfo{
+		pairPtr := &serviceInfoPair{
 			serviceInfo: serviceInfoPtr,
 		}
 
-		s.postgresqlCache.Put(serviceInfoPtr.Name, infoPtr, cache.ForeverAgeValue)
+		s.postgresqlCache.Put(serviceInfoPtr.Name, pairPtr, cache.ForeverAgeValue)
 		return
 	}
 
-	infoPtr := curPtr.(*serviceInfo)
-	infoPtr.serviceInfo = serviceInfoPtr
-	s.postgresqlCache.Put(serviceInfoPtr.Name, infoPtr, cache.ForeverAgeValue)
+	pairPtr := curPtr.(*serviceInfoPair)
+	pairPtr.serviceInfo = serviceInfoPtr
+	s.postgresqlCache.Put(serviceInfoPtr.Name, pairPtr, cache.ForeverAgeValue)
 }
 
 func (s *PostgreSQL) serviceVerify() {
 	postgresqlList := s.postgresqlCache.GetAll()
 	for _, val := range postgresqlList {
-		serviceInfoPtr, serviceInfoOK := val.(*serviceInfo)
+		serviceInfoPtr, serviceInfoOK := val.(*serviceInfoPair)
 		if !serviceInfoOK {
 			continue
 		}
@@ -109,7 +109,7 @@ func (s *PostgreSQL) Run() {
 	})
 }
 
-func (s *PostgreSQL) getResource() schema.GroupVersionResource {
+func (s *PostgreSQL) getGVR() schema.GroupVersionResource {
 	return schema.GroupVersionResource{Group: pgv1.Group, Version: pgv1.Version, Resource: pgv1.Postgresql}
 }
 
@@ -139,7 +139,7 @@ func (s *PostgreSQL) getK8sClient() (ret dynamic.Interface) {
 }
 
 func (s *PostgreSQL) List(namespace string) {
-	res := s.getResource()
+	res := s.getGVR()
 	client := s.getK8sClient()
 	resList, resErr := client.Resource(res).Namespace(namespace).List(context.TODO(), metav1.ListOptions{})
 	if resErr != nil {
@@ -159,17 +159,17 @@ func (s *PostgreSQL) List(namespace string) {
 
 		curPtr := s.postgresqlCache.Fetch(val.Name)
 		if curPtr == nil {
-			infoPtr := &serviceInfo{
+			pairPtr := &serviceInfoPair{
 				postgreSQLPtr: &val,
 			}
 
-			s.postgresqlCache.Put(val.Name, infoPtr, cache.ForeverAgeValue)
+			s.postgresqlCache.Put(val.Name, pairPtr, cache.ForeverAgeValue)
 			continue
 		}
 
-		infoPtr := curPtr.(*serviceInfo)
-		infoPtr.postgreSQLPtr = &val
-		s.postgresqlCache.Put(val.Name, infoPtr, cache.ForeverAgeValue)
+		pairPtr := curPtr.(*serviceInfoPair)
+		pairPtr.postgreSQLPtr = &val
+		s.postgresqlCache.Put(val.Name, pairPtr, cache.ForeverAgeValue)
 	}
 }
 
@@ -180,7 +180,7 @@ func (s *PostgreSQL) Get(namespace, name string) (ret *pgv1.PostgreSQL, err *cd.
 		return
 	}
 
-	res := s.getResource()
+	res := s.getGVR()
 	client := s.getK8sClient()
 	resVal, resErr := client.Resource(res).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if resErr != nil {
@@ -201,7 +201,7 @@ func (s *PostgreSQL) Get(namespace, name string) (ret *pgv1.PostgreSQL, err *cd.
 }
 
 func (s *PostgreSQL) Create(namespace string, pgPtr *pgv1.PostgreSQL) (ret *pgv1.PostgreSQL, err *cd.Result) {
-	res := s.getResource()
+	res := s.getGVR()
 	client := s.getK8sClient()
 
 	unstructuredPtr, unstructuredErr := runtime.DefaultUnstructuredConverter.ToUnstructured(pgPtr)
